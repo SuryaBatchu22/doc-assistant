@@ -1,0 +1,15 @@
+flask
+flask-login
+Flask-Mail
+flask-sqlalchemy
+python-dotenv
+langchain
+langchain-community
+langchain-groq
+chromadb
+pypdf
+llama-index
+huggingface-hub
+speechrecognition
+sentence-transformers
+

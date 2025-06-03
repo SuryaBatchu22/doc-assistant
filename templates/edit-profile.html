@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Edit Profile | Doc Assistant</title>
+  <link rel="stylesheet" href="/static/auth.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/static/favicon.png" type="image/png">
+</head>
+<body>
+  <div class="container">
+    <h1 class="title">Edit Your Profile</h1>
+
+    <div id="auth-section">
+      <input type="text" id="first_name" placeholder="First Name" />
+      <div id="error-first_name" class="error" style="display: none;"></div>
+
+      <input type="text" id="last_name" placeholder="Last Name" />
+      <div id="error-last_name" class="error" style="display: none;"></div>
+
+      <button onclick="updateProfile()">Save Changes</button>
+      <p><a href="/chat">⬅️ Back to Chat</a></p>
+    </div>
+  </div>
+
+  <script>
+    async function loadProfile() {
+      const res = await fetch("/profile-info");
+      const data = await res.json();
+      if (res.ok) {
+        document.getElementById("first_name").value = data.first_name || "";
+        document.getElementById("last_name").value = data.last_name || "";
+      }
+    }
+
+    async function updateProfile() {
+      const first = document.getElementById("first_name").value.trim();
+      const last = document.getElementById("last_name").value.trim();
+      let hasError = false;
+
+      if (!/^[A-Za-z.]+$/.test(first)) {
+        document.getElementById("error-first_name").innerText = "Only letters and dots allowed.";
+        document.getElementById("error-first_name").style.display = "block";
+        hasError = true;
+      } else {
+        document.getElementById("error-first_name").style.display = "none";
+      }
+
+      if (!/^[A-Za-z.]+$/.test(last)) {
+        document.getElementById("error-last_name").innerText = "Only letters and dots allowed.";
+        document.getElementById("error-last_name").style.display = "block";
+        hasError = true;
+      } else {
+        document.getElementById("error-last_name").style.display = "none";
+      }
+
+      if (hasError) return;
+
+      const res = await fetch("/edit-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ first_name: first, last_name: last })
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        alert("Profile updated!");
+        window.location.href = "/chat";
+      } else {
+        alert(data.error);
+      }
+    }
+
+    loadProfile();
+  </script>
+</body>
+</html>

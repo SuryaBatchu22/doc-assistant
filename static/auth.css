@@ -1,0 +1,98 @@
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #101010;
+  color: #e2e8f0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.container {
+  background-color: #1e293b;
+  padding: 40px;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  width: 100%;
+  max-width: 400px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.title {
+  font-size: 28px;
+  margin-bottom: 30px;
+  color: #ffffff;
+}
+
+#auth-section input[type="text"],
+#auth-section input[type="email"],
+#auth-section input[type="password"] {
+  width: 100%;
+  padding: 12px;
+  margin: 10px 0 2px;
+  background-color: #334155;
+  border: 1px solid #475569;
+  border-radius: 6px;
+  color: #e2e8f0;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+#auth-section input[type="text"]::placeholder,
+#auth-section input[type="email"]::placeholder,
+#auth-section input[type="password"]::placeholder {
+  color: #94a3b8;
+}
+
+/* 🔴 Red border for invalid inputs */
+input.invalid {
+  border-color: #f87171 !important;
+}
+
+/* 🔴 Inline error message */
+.error {
+  color: #f87171;
+  font-size: 13px;
+  text-align: left;
+  margin-bottom: 5px;
+  padding-left: 2px;
+}
+
+#auth-section button {
+  width: 100%;
+  padding: 12px;
+  background-color: #4f46e5;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  margin-top: 15px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+#auth-section button:hover {
+  background-color: #4338ca;
+}
+
+#auth-section p {
+  margin-top: 15px;
+  font-size: 14px;
+}
+
+#auth-section a {
+  color: #60a5fa;
+  text-decoration: none;
+}
+
+#auth-section a:hover {
+  text-decoration: underline;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid #475569;
+}

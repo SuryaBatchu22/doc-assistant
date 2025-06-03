@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Login | Doc Assistant</title>
+  <link rel="stylesheet" href="/static/auth.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Log in to access your saved RAG chat sessions.">
+  <link rel="icon" type="image/png" href="/static/favicon.png">
+</head>
+
+<body>
+  <div class="container">
+    <h1 class="title">Log In to Doc Assistant</h1>
+
+    <div id="auth-section">
+      <input type="email" id="email" placeholder="Email Address" required />
+      <input type="password" id="password" placeholder="Password" required />
+
+      <button onclick="login()">Log In</button>
+
+      <p style="margin-top: 10px;">Forgot your password?
+        <a href="/forgot-password">Click here</a>
+      </p>
+
+      <p style="margin-top: 10px;">Don't have an account?
+        <a href="/signup">Sign Up</a>
+      </p>
+
+      <hr style="margin: 15px 0;">
+      <p style="text-align: center; font-weight: bold;">OR</p>
+      <button onclick="continueAsGuest()" style="margin-top: 10px;">Continue as Guest</button>
+    </div>
+  </div>
+
+  <script>
+    async function login() {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+
+      const res = await fetch("/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+        credentials: "include"
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        sessionStorage.removeItem("isGuest");
+        window.location.href = "/chat";
+      } else {
+        alert(data.error);
+      }
+    }
+
+    function continueAsGuest() {
+      sessionStorage.setItem("isGuest", "true");
+      window.location.href = "/chat";
+    }
+  </script>
+
+</body>
+
+</html>

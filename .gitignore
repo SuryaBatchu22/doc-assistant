@@ -1,0 +1,39 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+rag_venv/
+env/
+venv/
+
+# Environment variables
+.env
+
+# Database
+db.sqlite3
+*.db
+
+# VS Code settings
+.vscode/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Uploads and sessions
+uploads/
+instance/
+
+# Python history
+*.log
+*.pot
+*.pyc
+*.pyd
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Other IDEs
+.idea/
