@@ -47,6 +47,11 @@ def load_user(user_id):
 from app.routes import routes
 app.register_blueprint(routes)
 
+# --- Render health check endpoint (no auth) ---
+@app.route("/healthz")
+def healthz():
+    return "ok", 200
+
 @app.route("/")
 def index():
     return redirect(url_for("routes.show_login"))
