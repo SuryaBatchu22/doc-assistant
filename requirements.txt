@@ -12,4 +12,10 @@ llama-index
 huggingface-hub
 speechrecognition
 sentence-transformers
+gunicorn
+psycopg2-binary
+supabase
+langchain-huggingface
+pgvector
+
 
