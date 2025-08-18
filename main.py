@@ -9,8 +9,22 @@ load_dotenv()
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.config['SECRET_KEY'] = os.getenv("SECRET_KEY")
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///db.sqlite3'
+
+# --- DB: prefer DATABASE_URL (Postgres), else fallback to SQLite ---
+db_url = os.getenv("DATABASE_URL")
+if db_url and db_url.startswith("postgres://"):
+    # Some providers give old scheme; SQLAlchemy expects postgresql://
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url or 'sqlite:///db.sqlite3'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "pool_size": 3,
+    "max_overflow": 0,
+    "pool_pre_ping": True,
+    "pool_recycle": 1800,
+}
+
 
 # Mail config
 app.config["MAIL_SERVER"] = "smtp.gmail.com"
@@ -44,4 +58,4 @@ def chat():
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
-    app.run(debug=True)
+    app.run(debug=True, use_reloader=False)

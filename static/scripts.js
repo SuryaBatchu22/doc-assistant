@@ -189,32 +189,40 @@ function addMessage(sender, text) {
 }
 
 document.getElementById("download-log").onclick = async () => {
-    const res = await fetch("/sessions");
-    const sessions = await res.json();
-    const session = sessions.find(s => s.id === currentSessionId);
+  // default name if we can't fetch /sessions (guest)
+  let sessionTitle = "chat_log";
+  const dateStamp = new Date().toISOString().split("T")[0];
 
-    const sessionTitle = session
-        ? session.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()
-        : "chat_log";
+  try {
+    const res = await fetch("/sessions", { headers: { "Accept": "application/json" } });
+    const isJSON = res.headers.get("content-type")?.includes("application/json");
+    if (res.ok && isJSON) {
+      const sessions = await res.json();
+      const session = sessions.find(s => String(s.id) === String(currentSessionId));
+      if (session?.title) {
+        sessionTitle = session.title.replace(/[^a-z0-9]/gi, "_").toLowerCase();
+      }
+    }
+    // if not ok or not JSON (guest redirect), we keep the default "chat_log"
+  } catch {
+    // network error: keep default "chat_log"
+  }
 
-    const dateStamp = new Date().toISOString().split("T")[0];
-    const filename = `${sessionTitle}_${dateStamp}.txt`;
+  const filename = `${sessionTitle}_${dateStamp}.txt`;
 
-    const blob = new Blob(
-        chatLog.map(e => {
-            if (!e.question && e.answer?.startsWith("🗂 Uploaded File:")) {
-                return `${e.answer}\n\n`;
-            } else {
-                return `Q: ${e.question}\nA: ${e.answer}\n\n`;
-            }
-        }),
-        { type: "text/plain" }
-    );
+  const lines = (Array.isArray(chatLog) ? chatLog : []).map(e => {
+    if (!e.question && e.answer?.startsWith("🗂 Uploaded File:")) {
+      return `${e.answer}\n\n`;
+    } else {
+      return `Q: ${e.question}\nA: ${e.answer}\n\n`;
+    }
+  }).join("");
 
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = filename;
-    link.click();
+  const blob = new Blob([lines], { type: "text/plain" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  link.click();
 };
 
 async function logout() {
