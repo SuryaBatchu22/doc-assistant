@@ -7,8 +7,9 @@ from werkzeug.utils import secure_filename
 
 from supabase import create_client
 from pypdf import PdfReader
-
+from tenacity import retry, stop_after_attempt, wait_exponential
 # Embeddings / Vector store
+from langchain_core.embeddings import Embeddings
 from langchain_community.vectorstores import PGVector
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
@@ -38,6 +39,19 @@ VECTOR_COLLECTION = "doc_assistant_embeddings"  # name for pgvector collection
 
 supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
 
+
+class SafeEmbeddings(Embeddings):
+    def __init__(self, inner):
+        self.inner = inner
+
+    @retry(reraise=True, stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.5, min=0.5, max=4))
+    def embed_query(self, text: str):
+        return self.inner.embed_query(text)
+
+    @retry(reraise=True, stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.5, min=0.5, max=4))
+    def embed_documents(self, texts):
+        return self.inner.embed_documents(texts)
+
 EMBED_BACKEND = os.getenv("EMBED_BACKEND", "hf_inference")
 EMBED_MODEL_NAME = os.getenv("EMBED_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 
@@ -46,17 +60,19 @@ def get_embedding_model():
     if EMBED_BACKEND == "hf_inference":
         # Remote, tiny memory
         from langchain_huggingface import HuggingFaceEndpointEmbeddings
-        return HuggingFaceEndpointEmbeddings(
+        base = HuggingFaceEndpointEmbeddings(
             model=EMBED_MODEL_NAME,
             huggingfacehub_api_token=os.getenv("HUGGINGFACEHUB_API_TOKEN"),
         )
+        return SafeEmbeddings(base)
     else:
         # Local fallback (not used on Render Free)
         from langchain_huggingface import HuggingFaceEmbeddings
-        return HuggingFaceEmbeddings(model_name=EMBED_MODEL_NAME)
-
+        base = HuggingFaceEmbeddings(model_name=EMBED_MODEL_NAME)
+        return SafeEmbeddings(base)
+    
 # Splitter for PDF text
-splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
+splitter = RecursiveCharacterTextSplitter(chunk_size=700, chunk_overlap=100)
 
 
 # === Storage helpers ===
@@ -173,38 +189,48 @@ def build_vector_index(documents, namespace: str = "default"):
 
 
 # === RAG chain ===
-def get_qa_chain(vector_db_or_retriever):
+
+def get_qa_chain(vector_db_or_retriever, *, k=None, model="llama3-8b-8192",
+                 max_tokens=512, request_timeout=20, max_retries=2):
     """
-    Accept either a vector store (with .as_retriever) or a retriever directly.
+    Accepts either:
+      - a vector store (we'll call .as_retriever, optionally with k), or
+      - a retriever object (used as-is).
     """
     if hasattr(vector_db_or_retriever, "as_retriever"):
-        retriever = vector_db_or_retriever.as_retriever(search_kwargs={"k": 6})
+        retriever = (vector_db_or_retriever.as_retriever(search_kwargs={"k": k})
+                     if k is not None else vector_db_or_retriever.as_retriever())
     else:
         retriever = vector_db_or_retriever
 
-    llm = ChatGroq(temperature=0, model_name="llama3-8b-8192")
-    qa_chain = RetrievalQA.from_chain_type(llm=llm, retriever=retriever)
-    return qa_chain
-
+    llm = ChatGroq(
+        temperature=0,
+        model_name=model,
+        max_tokens=max_tokens,          # keeps answers compact (faster)
+        request_timeout=request_timeout,  # prevents long hangs
+        max_retries=max_retries,          # quick resilience
+    )
+    return RetrievalQA.from_chain_type(llm=llm, retriever=retriever)
 
 def ask_question(qa_chain, query: str) -> str:
-    return qa_chain.run(query)
+    # RetrievalQA expects the "query" key; output is under "result"
+    out = qa_chain.invoke({"query": query})
+    # Some LC builds return a plain string already; handle both
+    return out.get("result", out) if isinstance(out, dict) else out
 
-
-def get_retriever(k: int = 6, namespace: str = "default"):
+def get_retriever(k: int = 4, namespace: str = "default"):
     """
-    Build a retriever backed by pgvector (no need to rebuild index each time).
+    Build a retriever backed by pgvector (no rebuild per ask).
     """
-    collection = (
-        VECTOR_COLLECTION if namespace == "default" else f"{VECTOR_COLLECTION}_{namespace}"
-    )
+    collection = VECTOR_COLLECTION if namespace == "default" else f"{VECTOR_COLLECTION}_{namespace}"
     store = PGVector(
         embedding_function=get_embedding_model(),
         collection_name=collection,
         connection_string=PG_CONN,
-         engine_args=ENGINE_ARGS, 
+        engine_args=ENGINE_ARGS,  # your small pool caps
     )
     return store.as_retriever(search_kwargs={"k": k})
+
 
 
 # Reuse your DATABASE_URL

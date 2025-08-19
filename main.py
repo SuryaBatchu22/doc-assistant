@@ -50,6 +50,13 @@ app.register_blueprint(routes)
 # --- Render health check endpoint (no auth) ---
 @app.route("/healthz")
 def healthz():
+    try:
+        if os.getenv("WARM_EMBED_ON_HEALTHZ", "0") == "1" and not getattr(app, "_embed_warmed", False):
+            from app.rag_engine import get_embedding_model
+            get_embedding_model().embed_query("warmup")
+            app._embed_warmed = True
+    except Exception as e:
+        print(f"[HEALTHZ warmup skipped] {e}")
     return "ok", 200
 
 @app.route("/")
