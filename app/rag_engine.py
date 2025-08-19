@@ -19,6 +19,15 @@ from langchain.chains import RetrievalQA
 from langchain_groq import ChatGroq
 
 from sqlalchemy import create_engine, text
+import re
+_NUL_RE = re.compile(r"\x00")
+
+def _clean_text(s: str) -> str:
+    if not s:
+        return ""
+    # remove NUL bytes; also trim whitespace
+    return _NUL_RE.sub("", s).strip()
+
 
 # === ENV / Clients ===
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -116,36 +125,33 @@ def download_pdf_bytes(path: str) -> bytes:
 
 # === PDF → Documents ===
 def pdf_bytes_to_documents(pdf_bytes: bytes, metadata: dict) -> list[Document]:
-    """
-    Convert PDF bytes into chunked LangChain Documents with metadata.
-    """
     reader = PdfReader(BytesIO(pdf_bytes))
     docs: list[Document] = []
-
     for i, page in enumerate(reader.pages):
-        text = page.extract_text() or ""
-        if text.strip():
-            chunks = splitter.split_text(text)
-            for chunk in chunks:
-                docs.append(
-                    Document(
-                        page_content=chunk,
-                        metadata={**metadata, "page": i},
-                    )
-                )
+        raw = page.extract_text() or ""
+        text = _clean_text(raw)
+        if not text:
+            continue
+        chunks = splitter.split_text(text)
+        for chunk in chunks:
+            chunk = _clean_text(chunk)
+            if chunk:
+                docs.append(Document(page_content=chunk, metadata={**metadata, "page": i}))
     return docs
 
 
 # === Indexing (pgvector) ===
 def upsert_documents(docs: list[Document], namespace: str = "default") -> None:
-    """
-    Insert/update docs into pgvector collection.
-    """
-    collection = (
-        VECTOR_COLLECTION if namespace == "default" else f"{VECTOR_COLLECTION}_{namespace}"
-    )
+    collection = VECTOR_COLLECTION if namespace == "default" else f"{VECTOR_COLLECTION}_{namespace}"
+    cleaned = [
+        Document(page_content=_clean_text(d.page_content), metadata=d.metadata)
+        for d in docs
+        if _clean_text(d.page_content)
+    ]
+    if not cleaned:
+        return
     PGVector.from_documents(
-        documents=docs,
+        documents=cleaned,
         embedding=get_embedding_model(),
         collection_name=collection,
         connection_string=PG_CONN,

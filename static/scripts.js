@@ -58,26 +58,55 @@ uploadBtn.addEventListener("click", () => {
 });
 
 sendBtn.onclick = async () => {
-    const question = input.value.trim();
-    if (!question) return;
+  const question = input.value.trim();
+  if (!question) return;
 
-    addMessage("user", question);
-    input.value = "";
+  addMessage("user", question);
+  input.value = "";
 
+  try {
     const res = await fetch("/ask", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            ...(isGuest ? { "X-Guest-ID": guestId } : {})
-        },
-        body: JSON.stringify({ question, session_id: currentSessionId })
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        ...(isGuest ? { "X-Guest-ID": guestId || "" } : {})
+      },
+      body: JSON.stringify({ question, session_id: currentSessionId })
     });
 
-    const data = await res.json();
+    // If server errored (e.g., 502/504), read safely and show a friendly line
+    const ct = res.headers.get("content-type") || "";
+    const isJSON = ct.includes("application/json");
+
+    if (!res.ok) {
+      let msg = `HTTP ${res.status} ${res.statusText}`;
+      if (isJSON) {
+        try {
+          const body = await res.json();
+          if (body?.error) msg = body.error;
+        } catch {}
+      }
+      addMessage("bot", ` ${msg}. Please try again.`);
+      return;
+    }
+
+    // Guard against HTML error pages
+    if (!isJSON) {
+      addMessage("bot", " Server returned a non-JSON response. Please try again.");
+      return;
+    }
+
+    const data = await res.json().catch(() => ({}));
     const answer = data.answer || data.error || "No response.";
     addMessage("bot", answer);
     chatLog.push({ question, answer });
+
+  } catch (e) {
+    addMessage("bot", ` ${e.message || "Network error"}. Please try again.`);
+  }
 };
+
 
 const showOverlay = () => {
     document.getElementById("uploading-overlay").style.display = "flex";
