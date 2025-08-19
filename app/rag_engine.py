@@ -9,7 +9,6 @@ from supabase import create_client
 from pypdf import PdfReader
 
 # Embeddings / Vector store
-# from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import PGVector
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
@@ -39,20 +38,20 @@ VECTOR_COLLECTION = "doc_assistant_embeddings"  # name for pgvector collection
 
 supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
 
-EMBED_BACKEND = os.getenv("EMBED_BACKEND", "hf_inference")  # default to remote on Render
+EMBED_BACKEND = os.getenv("EMBED_BACKEND", "hf_inference")
 EMBED_MODEL_NAME = os.getenv("EMBED_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 
 @lru_cache(maxsize=1)
 def get_embedding_model():
     if EMBED_BACKEND == "hf_inference":
-        # Remote embeddings (tiny memory). Needs HUGGINGFACEHUB_API_TOKEN in env.
-        from langchain_community.embeddings import HuggingFaceInferenceAPIEmbeddings
-        return HuggingFaceInferenceAPIEmbeddings(
-            api_key=os.getenv("HUGGINGFACEHUB_API_TOKEN"),
-            model_name=EMBED_MODEL_NAME,
+        # Remote, tiny memory
+        from langchain_huggingface import HuggingFaceEndpointEmbeddings
+        return HuggingFaceEndpointEmbeddings(
+            model=EMBED_MODEL_NAME,
+            huggingfacehub_api_token=os.getenv("HUGGINGFACEHUB_API_TOKEN"),
         )
     else:
-        # Local fallback (NOT recommended on Render Free; can OOM)
+        # Local fallback (not used on Render Free)
         from langchain_huggingface import HuggingFaceEmbeddings
         return HuggingFaceEmbeddings(model_name=EMBED_MODEL_NAME)
 

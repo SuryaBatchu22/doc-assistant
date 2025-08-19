@@ -15,7 +15,7 @@ speechrecognition
 gunicorn
 psycopg2-binary
 supabase
-# langchain-huggingface
+langchain-huggingface
 pgvector
 
 
