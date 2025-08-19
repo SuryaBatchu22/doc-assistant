@@ -175,8 +175,6 @@ fileInput.onchange = async () => {
             if (isGuest && data.session_id) {
                  currentSessionId = data.session_id;
             }
-            console.log("[UPLOAD] Guest Session ID Set:", currentSessionId);
-            console.log("[UPLOAD] Guest ID:", guestId);
 
 
         } else {
@@ -299,6 +297,7 @@ async function loadSessions() {
         renameBtn.innerHTML = '<i class="fa-solid fa-pen" style="color: #101010;"></i>';
         renameBtn.style.marginLeft = "auto";
         renameBtn.style.backgroundColor = "#EAEAEA";
+        renameBtn.style.cursor = "pointer";
         renameBtn.onclick = async (e) => {
             e.stopPropagation();
             const newTitle = prompt("Enter new title:", s.title);
@@ -315,6 +314,7 @@ async function loadSessions() {
         delBtn.innerHTML = '<i class="fa-solid fa-trash" style="color: #101010;"></i>';
         delBtn.style.marginLeft = "5px";
         delBtn.style.backgroundColor = "#EAEAEA";
+        delBtn.style.cursor = "pointer"; 
         delBtn.onclick = async (e) => {
             e.stopPropagation();
             try {
