@@ -6,16 +6,16 @@ python-dotenv
 langchain
 langchain-community
 langchain-groq
-chromadb
+# chromadb
 pypdf
-llama-index
+# llama-index
 huggingface-hub
 speechrecognition
-sentence-transformers
+# sentence-transformers
 gunicorn
 psycopg2-binary
 supabase
-langchain-huggingface
+# langchain-huggingface
 pgvector
 
 
