@@ -1,5 +1,6 @@
 import os
 from io import BytesIO
+from functools import lru_cache
 
 from uuid import uuid4
 from werkzeug.utils import secure_filename
@@ -8,7 +9,7 @@ from supabase import create_client
 from pypdf import PdfReader
 
 # Embeddings / Vector store
-from langchain_huggingface import HuggingFaceEmbeddings
+# from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import PGVector
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
@@ -38,8 +39,22 @@ VECTOR_COLLECTION = "doc_assistant_embeddings"  # name for pgvector collection
 
 supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
 
-# Embeddings
-embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+EMBED_BACKEND = os.getenv("EMBED_BACKEND", "hf_inference")  # default to remote on Render
+EMBED_MODEL_NAME = os.getenv("EMBED_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+
+@lru_cache(maxsize=1)
+def get_embedding_model():
+    if EMBED_BACKEND == "hf_inference":
+        # Remote embeddings (tiny memory). Needs HUGGINGFACEHUB_API_TOKEN in env.
+        from langchain_community.embeddings import HuggingFaceInferenceAPIEmbeddings
+        return HuggingFaceInferenceAPIEmbeddings(
+            api_key=os.getenv("HUGGINGFACEHUB_API_TOKEN"),
+            model_name=EMBED_MODEL_NAME,
+        )
+    else:
+        # Local fallback (NOT recommended on Render Free; can OOM)
+        from langchain_huggingface import HuggingFaceEmbeddings
+        return HuggingFaceEmbeddings(model_name=EMBED_MODEL_NAME)
 
 # Splitter for PDF text
 splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
@@ -116,7 +131,7 @@ def upsert_documents(docs: list[Document], namespace: str = "default") -> None:
     )
     PGVector.from_documents(
         documents=docs,
-        embedding=embeddings,
+        embedding=get_embedding_model(),
         collection_name=collection,
         connection_string=PG_CONN,
         engine_args=ENGINE_ARGS,
@@ -150,7 +165,7 @@ def build_vector_index(documents, namespace: str = "default"):
     )
     store = PGVector.from_documents(
         documents=documents,
-        embedding=embeddings,
+        embedding=get_embedding_model(),
         collection_name=collection,
         connection_string=PG_CONN,
         engine_args=ENGINE_ARGS,
@@ -185,15 +200,23 @@ def get_retriever(k: int = 6, namespace: str = "default"):
         VECTOR_COLLECTION if namespace == "default" else f"{VECTOR_COLLECTION}_{namespace}"
     )
     store = PGVector(
-        embedding_function=embeddings,
+        embedding_function=get_embedding_model(),
         collection_name=collection,
         connection_string=PG_CONN,
+         engine_args=ENGINE_ARGS, 
     )
     return store.as_retriever(search_kwargs={"k": k})
 
 
 # Reuse your DATABASE_URL
-_sql_engine = create_engine(PG_CONN, future=True)
+_sql_engine = create_engine(
+    PG_CONN,
+    future=True,
+    pool_size=1,
+    max_overflow=0,
+    pool_pre_ping=True,
+    pool_recycle=1800,
+)
 
 def delete_storage_for_session(owner_id: str, session_namespace: str) -> int:
     """
