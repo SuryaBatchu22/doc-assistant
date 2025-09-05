@@ -2,7 +2,7 @@
 
 This is a small web app that lets you chat with your PDFs. You upload one or more files, the app finds the most relevant passages, and a fast Groq model writes an answer that stays grounded in your documents. It supports guests and registered users, keeps session history for people who sign in, and runs well on a free Render service.
 
-## What you can use it for
+## What we can use it for
 
 * Study and revision: drop in lecture notes or chapters and ask focused questions.
 * Reports and manuals: query long PDFs like policies, product manuals, or research.
